@@ -6,6 +6,11 @@ from langchain_perplexity.chat_models import ChatPerplexity
 from dotenv import load_dotenv
 from langserve import add_routes
 import os
+from typing import Annotated
+from pydantic import BaseModel, SkipValidation
+
+class Foo(BaseModel): # <-- BaseModel is from Pydantic v2
+    model: Annotated[ChatPerplexity, SkipValidation()]
 
 load_dotenv()
 api_key = os.getenv("PPLX_API_KEY")
@@ -14,14 +19,14 @@ if not api_key:
 
 # 1) Prompt
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a concise assistant."),
-    ("human", "Summarize in 3 bullets: {topic}")
+    ("system", "You are a research assistant powered by Perplexity AI."),
+    ("human", "{question}")
 ])
 
 # 2) LLM (Perplexity Sonar)
 llm = ChatPerplexity(
-    model="sonar",          # e.g. "sonar", "sonar-reasoning", "sonar-deep-research"
-    temperature=0.2,
+    model="sonar",          # e.g. "sonar", "sonar-reasoning", "sonar-deep-research", "perplexity-advanced"
+    temperature=0.7,
     api_key=api_key
 )
 
@@ -38,14 +43,30 @@ chain = prompt | llm | parser
 #     print(chunk, end="", flush=True)
 
 
-app = FastAPI(title="Perplexity Sonar LCEL API")
+# app = FastAPI(title="Perplexity Sonar LCEL API")
 
-@app.get("/")
-def root():
-    return RedirectResponse("/docs")
+# @app.get("/")
+# def root():
+#     return RedirectResponse("/docs")
 
+# add_routes(app, chain, path="/sonar")
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="My LangChain API",
+    version="1.0",
+    description="API server using LangChain's Runnable interfaces"
+)
+
+# Add the chain as a route
 add_routes(app, chain, path="/sonar")
 
+# Run the server
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="localhost", port=8000)
