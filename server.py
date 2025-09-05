@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
-from langchain_core.prompts import ChatPromptTemplate
+from fastapi.responses import StreamingResponse
+from langchain_core.prompts import (ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate)
 from langchain_core.output_parsers import StrOutputParser
 from langchain_perplexity.chat_models import ChatPerplexity
 from dotenv import load_dotenv
@@ -9,52 +9,36 @@ import os
 from typing import Annotated
 from pydantic import BaseModel, SkipValidation
 
-class Foo(BaseModel): # <-- BaseModel is from Pydantic v2
-    model: Annotated[ChatPerplexity, SkipValidation()]
-
 load_dotenv()
 api_key = os.getenv("PPLX_API_KEY")
 if not api_key:
     raise ValueError("PPLX_API_KEY not found in .env")
 
-# 1) Prompt
+prompt_str = """
+You are a research assistant powered by Perplexity AI.
+Given a question, provide a concise and accurate answer based on reliable sources.
+Question: {question}
+Answer:
+"""
+
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a research assistant powered by Perplexity AI."),
-    ("human", "{question}")
+    SystemMessagePromptTemplate.from_template(prompt_str),
+    HumanMessagePromptTemplate.from_template("{question}")
 ])
 
-# 2) LLM (Perplexity Sonar)
 llm = ChatPerplexity(
     model="sonar",          # e.g. "sonar", "sonar-reasoning", "sonar-deep-research", "perplexity-advanced"
     temperature=0.7,
     api_key=api_key
 )
 
-# 3) Output parser (string)
 parser = StrOutputParser()
 
-# 4) LCEL chain
 chain = prompt | llm | parser
-
-# Run
 # print(chain.invoke({"topic": "Transformers in NLP"}))
-# Basic example
-# for chunk in (prompt | llm | parser).stream({"topic": "LLM evaluation best practices"}):
+# Sreaming response to console
+# for chunk in chain.stream({"topic": "LLM evaluation best practices"}):
 #     print(chunk, end="", flush=True)
-
-
-# app = FastAPI(title="Perplexity Sonar LCEL API")
-
-# @app.get("/")
-# def root():
-#     return RedirectResponse("/docs")
-
-# add_routes(app, chain, path="/sonar")
-
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
 # Create FastAPI app
 app = FastAPI(
